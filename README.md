@@ -1,6 +1,6 @@
 # Final Project Website Programming 2025 - WordIT
 
-this is the backend repository for WordIT. A Website where you can play, learn, and having fun at the same time.
+This is the backend repository for WordIT. A Website where you can play, learn, and having fun at the same time.
 
 ## How To Start
 
@@ -11,7 +11,7 @@ this is the backend repository for WordIT. A Website where you can play, learn, 
 bun install
 ```
 
-3. Create a env file. For development, name it `.env.development`
+3. Create an env file. For development, name it `.env.development`
 ```conf
 POSTGRES_USER=""       # Hanya gunakan huruf kecil, angka, dan simbol underscore
 POSTGRES_PASSWORD=""
@@ -53,6 +53,32 @@ bun start:dev
 ## How to Dev
 
 - Please follow the current project format
+
+- There are 2 ways to use validation. First, you can use `validateBody` middleware to validate and rewrite your req.body
+```ts
+.post(
+  '/register',
+  validateBody({
+    schema: RegisterSchema,
+    file_fields: [{ name: 'profile_picture', maxCount: 1 }], // If your req has file field, register the field name like the example on the left. Otherwise, you can remove this entire line
+  }),
+  async (
+    request: Request<{}, {}, IRegister>, // Fill the 3rd spot on Request type generic so your req.body can have the format you want
+    response: Response,
+    next: NextFunction,
+  ) => {
+    /* controller logic here... */
+  })
+```
+
+- Second, you can use `AdditionalValidation.validate` function to validate other thing such as `req.params` or `req.query`
+```ts
+// Since Pagination query has default value of page and perPage, you can still access query.page and query.perPage eventhough they're not assigned in request.query
+const query = AdditionalValidation.validate(
+  UserPaginationQuerySchema,
+  request.query,
+);
+```
 
 - Before commiting your work, check your code format
 ```bash
