@@ -18,7 +18,6 @@ export const SpeedSortingCategoryInputSchema = z.object({
 
 export const SpeedSortingItemInputSchema = z.object({
   text: z.string().max(512).trim(),
-  // index of category in categories array (0-based)
   category_index: z.coerce.number().int().min(0).max(100),
 });
 
@@ -32,7 +31,6 @@ export const CreateSpeedSortingSchema = z
 
     show_score_at_end: StringToBooleanSchema.default(true),
 
-    // FE sends JSON string for these
     categories: StringToObjectSchema(
       z.array(SpeedSortingCategoryInputSchema).min(2).max(20),
     ),
@@ -41,7 +39,6 @@ export const CreateSpeedSortingSchema = z
     ),
   })
   .superRefine((data, context) => {
-    // make sure category_index not out-of-range
     const maxIndex = data.categories.length - 1;
 
     for (const [index, item] of data.items.entries()) {

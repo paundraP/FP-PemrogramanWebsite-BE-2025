@@ -19,7 +19,6 @@ import {
 import { SpeedSortingService } from './speed-sorting.service';
 
 export const SpeedSortingController = Router()
-  // 1) Create template
   .post(
     '/',
     validateAuth({}),
@@ -50,7 +49,7 @@ export const SpeedSortingController = Router()
       }
     },
   )
-  // 2) Update template (name/desc/thumb/categories/items/show_score)
+
   .patch(
     '/:game_id',
     validateAuth({}),
@@ -85,7 +84,7 @@ export const SpeedSortingController = Router()
       }
     },
   )
-  // 3) Play: send timer/speed/lives, get config + dataset
+
   .post(
     '/:game_id/play',
     validateBody({

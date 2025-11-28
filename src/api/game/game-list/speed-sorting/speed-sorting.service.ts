@@ -14,7 +14,6 @@ import {
 export abstract class SpeedSortingService {
   private static speedSortingSlug = 'speed-sorting';
 
-  // 1) CREATE TEMPLATE
   static async createSpeedSorting(data: ICreateSpeedSorting, user_id: string) {
     await this.ensureNameNotDuplicate(data.name);
 
@@ -73,7 +72,6 @@ export abstract class SpeedSortingService {
     return newGame;
   }
 
-  // 2) UPDATE TEMPLATE
   static async updateSpeedSorting(
     game_id: string,
     data: IUpdateSpeedSorting,
@@ -118,7 +116,6 @@ export abstract class SpeedSortingService {
 
     let json = existing.game_json as unknown as ISpeedSortingJson;
 
-    // handle thumbnail update
     let thumbnailImagePath = existing.thumbnail_image;
 
     if (data.thumbnail_image) {
@@ -128,7 +125,6 @@ export abstract class SpeedSortingService {
       );
     }
 
-    // handle dataset update (categories + items)
     if (data.categories || data.items) {
       if (!data.categories || !data.items) {
         throw new ErrorResponse(
@@ -190,7 +186,6 @@ export abstract class SpeedSortingService {
     return updated;
   }
 
-  // 3) PLAY (runtime config + dataset)
   static async getSpeedSortingForPlay(
     game_id: string,
     config: IPlaySpeedSorting,
@@ -249,8 +244,6 @@ export abstract class SpeedSortingService {
       items: json.items,
     };
   }
-
-  // helpers
 
   private static async ensureNameNotDuplicate(name: string) {
     const existing = await prisma.games.findFirst({
