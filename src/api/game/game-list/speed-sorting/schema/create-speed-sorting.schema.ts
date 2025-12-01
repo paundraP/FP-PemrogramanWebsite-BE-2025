@@ -27,6 +27,38 @@ function base64ToBuffer(string_: string): Buffer {
   return Buffer.from(raw, 'base64');
 }
 
+const MIME_TO_EXT: Record<string, string> = {
+  ['image/png']: 'png',
+  ['image/jpeg']: 'jpg',
+  ['image/jpg']: 'jpg',
+  ['image/webp']: 'webp',
+  ['image/gif']: 'gif',
+  ['application/pdf']: 'pdf',
+};
+
+function getExtensionFromMime(mime?: string | null): string {
+  if (!mime) return 'bin';
+
+  return MIME_TO_EXT[mime] ?? 'bin';
+}
+
+function parseDataUrl(value: string): { mime?: string; base64: string } {
+  const match = value.match(/^data:([^;]+);base64,(.*)$/);
+
+  if (match) {
+    return {
+      mime: match[1],
+      base64: match[2],
+    };
+  }
+
+  // no data: prefix, assume whole string is base64
+  return {
+    mime: undefined,
+    base64: value,
+  };
+}
+
 export const SpeedSortingTimerModeEnum = z.enum([
   'NONE',
   'COUNT_UP',
@@ -75,15 +107,20 @@ export const CreateSpeedSortingSchema = z
     ...data,
     items: data.items.map((item, index) => {
       if (isBase64(item.value) || item.type === 'file') {
-        const buffer = base64ToBuffer(item.value);
+        const { mime, base64 } = parseDataUrl(item.value);
+
+        const buffer = base64ToBuffer(base64);
+        const extension = getExtensionFromMime(mime);
+
+        const filename = `item-${index}.${extension}`;
 
         return {
           ...item,
           type: 'file' as const,
           raw_value: item.value,
           file: {
-            filename: `item-${index}.bin`,
-            mimetype: 'application/octet-stream',
+            filename,
+            mimetype: mime ?? 'application/octet-stream',
             buffer,
           },
         };

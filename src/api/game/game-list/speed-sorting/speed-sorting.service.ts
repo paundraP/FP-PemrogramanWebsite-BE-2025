@@ -41,21 +41,6 @@ function fileFromBase64(
   return new File([bytes], filename, { type: mimetype });
 }
 
-const MIME_TO_EXT: Record<string, string> = {
-  ['image/png']: 'png',
-  ['image/jpeg']: 'jpg',
-  ['image/jpg']: 'jpg',
-  ['image/webp']: 'webp',
-  ['image/gif']: 'gif',
-  ['application/pdf']: 'pdf',
-};
-
-function getExtensionFromMime(mime?: string | null): string {
-  if (!mime) return 'bin';
-
-  return MIME_TO_EXT[mime] ?? 'bin';
-}
-
 export abstract class SpeedSortingService {
   private static speedSortingSlug = 'speed-sorting';
 
@@ -99,14 +84,7 @@ export abstract class SpeedSortingService {
 
         const bytes = new Uint8Array(item.file.buffer);
 
-        const extension = getExtensionFromMime(item.file.mimetype);
-
-        const safeName =
-          item.file.filename && item.file.filename.includes('.')
-            ? item.file.filename
-            : `item-${index}.${extension}`;
-
-        const bunFile = new File([bytes], safeName, {
+        const bunFile = new File([bytes], item.file.filename, {
           type: item.file.mimetype,
         });
 
