@@ -5,11 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ErrorResponse, type ISpeedSortingJson, prisma } from '@/common';
 import { FileManager } from '@/utils';
 
-import {
-  type ICreateSpeedSorting,
-  type IPlaySpeedSorting,
-  type IUpdateSpeedSorting,
-} from './schema';
+import { type ICreateSpeedSorting, type IUpdateSpeedSorting } from './schema';
 
 const BASE64_REGEX =
   /^(?:[\d+/A-Za-z]{4})*(?:[\d+/A-Za-z]{2}==|[\d+/A-Za-z]{3}=)?$/;
@@ -247,10 +243,7 @@ export abstract class SpeedSortingService {
     return updated;
   }
 
-  static async getSpeedSortingForPlay(
-    game_id: string,
-    config: IPlaySpeedSorting,
-  ) {
+  static async getSpeedSortingForPlay(game_id: string) {
     const game = await prisma.games.findUnique({
       where: { id: game_id },
       select: {
@@ -291,15 +284,6 @@ export abstract class SpeedSortingService {
       name: game.name,
       description: game.description,
       thumbnail_image: game.thumbnail_image,
-      config: {
-        timer_mode: config.timer_mode,
-        timer_duration:
-          config.timer_mode === 'COUNT_DOWN'
-            ? (config.timer_duration ?? 60)
-            : null,
-        speed: config.speed,
-        lives: config.lives,
-      },
       categories: json.categories,
       items: json.items,
     };

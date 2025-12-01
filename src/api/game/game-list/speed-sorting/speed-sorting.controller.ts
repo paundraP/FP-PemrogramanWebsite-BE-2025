@@ -11,9 +11,7 @@ import {
 import {
   CreateSpeedSortingSchema,
   type ICreateSpeedSorting,
-  type IPlaySpeedSorting,
   type IUpdateSpeedSorting,
-  PlaySpeedSortingSchema,
   UpdateSpeedSortingSchema,
 } from './schema';
 import { SpeedSortingService } from './speed-sorting.service';
@@ -85,20 +83,16 @@ export const SpeedSortingController = Router()
     },
   )
 
-  .post(
+  .get(
     '/:game_id/play',
-    validateBody({
-      schema: PlaySpeedSortingSchema,
-    }),
     async (
-      request: AuthedRequest<{ game_id: string }, {}, IPlaySpeedSorting>,
+      request: AuthedRequest<{ game_id: string }, {}>,
       response: Response,
       next: NextFunction,
     ) => {
       try {
         const data = await SpeedSortingService.getSpeedSortingForPlay(
           request.params.game_id,
-          request.body,
         );
 
         const result = new SuccessResponse(
