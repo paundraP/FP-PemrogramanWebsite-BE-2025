@@ -6,6 +6,27 @@ import {
   StringToObjectSchema,
 } from '@/common';
 
+const BASE64_REGEX =
+  /^(?:[\d+/A-Za-z]{4})*(?:[\d+/A-Za-z]{2}==|[\d+/A-Za-z]{3}=)?$/;
+
+function isBase64(string_: string): boolean {
+  if (!string_ || typeof string_ !== 'string') return false;
+
+  const [, maybeBase64] = string_.split(',');
+  const raw = maybeBase64 ?? string_;
+
+  if (raw.length % 4 !== 0) return false;
+
+  return BASE64_REGEX.test(raw);
+}
+
+function base64ToBuffer(string_: string): Buffer {
+  const [, maybeBase64] = string_.split(',');
+  const raw = maybeBase64 ?? string_;
+
+  return Buffer.from(raw, 'base64');
+}
+
 export const SpeedSortingTimerModeEnum = z.enum([
   'NONE',
   'COUNT_UP',
@@ -17,8 +38,9 @@ export const SpeedSortingCategoryInputSchema = z.object({
 });
 
 export const SpeedSortingItemInputSchema = z.object({
-  text: z.string().max(512).trim(),
-  category_index: z.coerce.number().int().min(0).max(100),
+  value: z.string(),
+  category_index: z.number().int().nonnegative(),
+  type: z.enum(['text', 'file']).optional(),
 });
 
 export const CreateSpeedSortingSchema = z
@@ -48,6 +70,30 @@ export const CreateSpeedSortingSchema = z
         });
       }
     }
-  });
+  })
+  .transform(data => ({
+    ...data,
+    items: data.items.map((item, index) => {
+      if (isBase64(item.value) || item.type === 'file') {
+        const buffer = base64ToBuffer(item.value);
+
+        return {
+          ...item,
+          type: 'file' as const,
+          raw_value: item.value,
+          file: {
+            filename: `item-${index}.bin`,
+            mimetype: 'application/octet-stream',
+            buffer,
+          },
+        };
+      }
+
+      return {
+        ...item,
+        type: 'text' as const,
+      };
+    }),
+  }));
 
 export type ICreateSpeedSorting = z.infer<typeof CreateSpeedSortingSchema>;

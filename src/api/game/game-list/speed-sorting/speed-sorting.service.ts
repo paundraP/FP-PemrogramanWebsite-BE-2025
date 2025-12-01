@@ -30,7 +30,9 @@ export abstract class SpeedSortingService {
       name: cat.name,
     }));
 
-    const items = data.items.map((item, index) => {
+    const items = [];
+
+    for (const [index, item] of data.items.entries()) {
       const cat = categories[item.category_index];
 
       if (!cat) {
@@ -40,12 +42,36 @@ export abstract class SpeedSortingService {
         );
       }
 
-      return {
+      let textForJson = item.type === 'text' ? item.value : '';
+
+      if (item.type === 'file') {
+        if (!item.file) {
+          throw new ErrorResponse(
+            StatusCodes.BAD_REQUEST,
+            `Item no. ${index + 1} marked as file but no file data provided`,
+          );
+        }
+
+        const bytes = new Uint8Array(item.file.buffer);
+
+        const bunFile = new File([bytes], item.file.filename, {
+          type: item.file.mimetype,
+        });
+
+        const itemFilePath = await FileManager.upload(
+          `game/speed-sorting/${newGameId}/items`,
+          bunFile,
+        );
+
+        textForJson = itemFilePath;
+      }
+
+      items.push({
         id: `item-${index}`,
-        text: item.text,
+        text: textForJson,
         category_id: cat.id,
-      };
-    });
+      });
+    }
 
     const json: ISpeedSortingJson = {
       categories,
@@ -149,7 +175,7 @@ export abstract class SpeedSortingService {
 
         return {
           id: `item-${index}`,
-          text: item.text,
+          text: item.type === 'text' ? item.value : item.value,
           category_id: cat.id,
         };
       });
