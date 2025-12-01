@@ -29,8 +29,6 @@ export const CreateSpeedSortingSchema = z
 
     is_publish_immediately: StringToBooleanSchema.default(false),
 
-    show_score_at_end: StringToBooleanSchema.default(true),
-
     categories: StringToObjectSchema(
       z.array(SpeedSortingCategoryInputSchema).min(2).max(20),
     ),

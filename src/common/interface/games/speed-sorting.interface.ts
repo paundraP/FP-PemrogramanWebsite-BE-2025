@@ -12,8 +12,6 @@ export interface ISpeedSortingItem {
 }
 
 export interface ISpeedSortingJson {
-  show_score_at_end: boolean;
-
   categories: ISpeedSortingCategory[];
   items: ISpeedSortingItem[];
 }

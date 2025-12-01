@@ -48,7 +48,6 @@ export abstract class SpeedSortingService {
     });
 
     const json: ISpeedSortingJson = {
-      show_score_at_end: data.show_score_at_end,
       categories,
       items,
     };
@@ -156,17 +155,12 @@ export abstract class SpeedSortingService {
       });
 
       json = {
-        show_score_at_end:
-          data.show_score_at_end == null
-            ? json.show_score_at_end
-            : data.show_score_at_end,
         categories,
         items,
       };
     } else if (data.show_score_at_end != null) {
       json = {
         ...json,
-        show_score_at_end: data.show_score_at_end,
       };
     }
 
@@ -238,7 +232,6 @@ export abstract class SpeedSortingService {
             : null,
         speed: config.speed,
         lives: config.lives,
-        show_score_at_end: json.show_score_at_end,
       },
       categories: json.categories,
       items: json.items,
