@@ -11,6 +11,51 @@ import {
   type IUpdateSpeedSorting,
 } from './schema';
 
+const BASE64_REGEX =
+  /^(?:[\d+/A-Za-z]{4})*(?:[\d+/A-Za-z]{2}==|[\d+/A-Za-z]{3}=)?$/;
+
+function isBase64Like(string: string): boolean {
+  if (!string || typeof string !== 'string') return false;
+  const [, maybeBase64] = string.split(',');
+  const raw = maybeBase64 ?? string;
+  if (raw.length % 4 !== 0) return false;
+
+  return BASE64_REGEX.test(raw);
+}
+
+function fileFromBase64(
+  value: string,
+  filename: string,
+  mimetype = 'application/octet-stream',
+): File {
+  const [, maybeBase64] = value.split(',');
+  const raw = maybeBase64 ?? value;
+
+  const buffer = Buffer.from(raw, 'base64');
+  const bytes = new Uint8Array(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength,
+  );
+
+  return new File([bytes], filename, { type: mimetype });
+}
+
+const MIME_TO_EXT: Record<string, string> = {
+  ['image/png']: 'png',
+  ['image/jpeg']: 'jpg',
+  ['image/jpg']: 'jpg',
+  ['image/webp']: 'webp',
+  ['image/gif']: 'gif',
+  ['application/pdf']: 'pdf',
+};
+
+function getExtensionFromMime(mime?: string | null): string {
+  if (!mime) return 'bin';
+
+  return MIME_TO_EXT[mime] ?? 'bin';
+}
+
 export abstract class SpeedSortingService {
   private static speedSortingSlug = 'speed-sorting';
 
@@ -54,7 +99,14 @@ export abstract class SpeedSortingService {
 
         const bytes = new Uint8Array(item.file.buffer);
 
-        const bunFile = new File([bytes], item.file.filename, {
+        const extension = getExtensionFromMime(item.file.mimetype);
+
+        const safeName =
+          item.file.filename && item.file.filename.includes('.')
+            ? item.file.filename
+            : `item-${index}.${extension}`;
+
+        const bunFile = new File([bytes], safeName, {
           type: item.file.mimetype,
         });
 
@@ -163,7 +215,9 @@ export abstract class SpeedSortingService {
         name: cat.name,
       }));
 
-      const items = data.items.map((item, index) => {
+      const items: ISpeedSortingJson['items'] = [];
+
+      for (const [index, item] of data.items.entries()) {
         const cat = categories[item.category_index];
 
         if (!cat) {
@@ -173,20 +227,29 @@ export abstract class SpeedSortingService {
           );
         }
 
-        return {
+        let textForJson = item.value;
+
+        if (isBase64Like(item.value) && item.type === 'file') {
+          const bunFile = fileFromBase64(item.value, `item-${index}.bin`);
+
+          const itemFilePath = await FileManager.upload(
+            `game/speed-sorting/${game_id}/items`,
+            bunFile,
+          );
+
+          textForJson = itemFilePath;
+        }
+
+        items.push({
           id: `item-${index}`,
-          text: item.type === 'text' ? item.value : item.value,
+          text: textForJson,
           category_id: cat.id,
-        };
-      });
+        });
+      }
 
       json = {
         categories,
         items,
-      };
-    } else if (data.show_score_at_end != null) {
-      json = {
-        ...json,
       };
     }
 
