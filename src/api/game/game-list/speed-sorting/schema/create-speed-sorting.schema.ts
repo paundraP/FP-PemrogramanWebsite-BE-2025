@@ -9,7 +9,7 @@ import {
 const BASE64_REGEX =
   /^(?:[\d+/A-Za-z]{4})*(?:[\d+/A-Za-z]{2}==|[\d+/A-Za-z]{3}=)?$/;
 
-function isBase64(string_: string): boolean {
+export function isBase64(string_: string): boolean {
   if (!string_ || typeof string_ !== 'string') return false;
 
   const [, maybeBase64] = string_.split(',');
@@ -20,7 +20,7 @@ function isBase64(string_: string): boolean {
   return BASE64_REGEX.test(raw);
 }
 
-function base64ToBuffer(string_: string): Buffer {
+export function base64ToBuffer(string_: string): Buffer {
   const [, maybeBase64] = string_.split(',');
   const raw = maybeBase64 ?? string_;
 
@@ -36,13 +36,13 @@ const MIME_TO_EXT: Record<string, string> = {
   ['application/pdf']: 'pdf',
 };
 
-function getExtensionFromMime(mime?: string | null): string {
+export function getExtensionFromMime(mime?: string | null): string {
   if (!mime) return 'bin';
 
   return MIME_TO_EXT[mime] ?? 'bin';
 }
 
-function parseDataUrl(value: string): { mime?: string; base64: string } {
+export function parseDataUrl(value: string): { mime?: string; base64: string } {
   const match = value.match(/^data:([^;]+);base64,(.*)$/);
 
   if (match) {
@@ -52,7 +52,6 @@ function parseDataUrl(value: string): { mime?: string; base64: string } {
     };
   }
 
-  // no data: prefix, assume whole string is base64
   return {
     mime: undefined,
     base64: value,
@@ -72,7 +71,7 @@ export const SpeedSortingCategoryInputSchema = z.object({
 export const SpeedSortingItemInputSchema = z.object({
   value: z.string(),
   category_index: z.number().int().nonnegative(),
-  type: z.enum(['text', 'file']).optional(),
+  type: z.enum(['text', 'image']),
 });
 
 export const CreateSpeedSortingSchema = z
@@ -80,9 +79,7 @@ export const CreateSpeedSortingSchema = z
     name: z.string().max(128).trim(),
     description: z.string().max(256).trim().optional(),
     thumbnail_image: fileSchema({}),
-
-    is_publish_immediately: StringToBooleanSchema.default(false),
-
+    is_published: StringToBooleanSchema.default(false),
     categories: StringToObjectSchema(
       z.array(SpeedSortingCategoryInputSchema).min(2).max(20),
     ),
@@ -106,7 +103,7 @@ export const CreateSpeedSortingSchema = z
   .transform(data => ({
     ...data,
     items: data.items.map((item, index) => {
-      if (isBase64(item.value) || item.type === 'file') {
+      if (isBase64(item.value) && item.type === 'image') {
         const { mime, base64 } = parseDataUrl(item.value);
 
         const buffer = base64ToBuffer(base64);
@@ -116,7 +113,7 @@ export const CreateSpeedSortingSchema = z
 
         return {
           ...item,
-          type: 'file' as const,
+          type: 'image' as const,
           raw_value: item.value,
           file: {
             filename,
@@ -126,10 +123,7 @@ export const CreateSpeedSortingSchema = z
         };
       }
 
-      return {
-        ...item,
-        type: 'text' as const,
-      };
+      return { ...item, type: 'text' as const };
     }),
   }));
 

@@ -47,7 +47,33 @@ export const SpeedSortingController = Router()
       }
     },
   )
+  .get(
+    '/:game_id',
+    validateAuth({}),
+    async (
+      request: AuthedRequest<{ game_id: string }, {}>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        const data = await SpeedSortingService.getSpeedSortingGameDetail(
+          request.params.game_id,
+          request.user!.user_id,
+          request.user!.role,
+        );
 
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Speed Sorting game data',
+          data,
+        );
+
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        return next(error);
+      }
+    },
+  )
   .patch(
     '/:game_id',
     validateAuth({}),

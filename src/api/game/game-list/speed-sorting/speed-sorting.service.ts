@@ -7,36 +7,6 @@ import { FileManager } from '@/utils';
 
 import { type ICreateSpeedSorting, type IUpdateSpeedSorting } from './schema';
 
-const BASE64_REGEX =
-  /^(?:[\d+/A-Za-z]{4})*(?:[\d+/A-Za-z]{2}==|[\d+/A-Za-z]{3}=)?$/;
-
-function isBase64Like(string: string): boolean {
-  if (!string || typeof string !== 'string') return false;
-  const [, maybeBase64] = string.split(',');
-  const raw = maybeBase64 ?? string;
-  if (raw.length % 4 !== 0) return false;
-
-  return BASE64_REGEX.test(raw);
-}
-
-function fileFromBase64(
-  value: string,
-  filename: string,
-  mimetype = 'application/octet-stream',
-): File {
-  const [, maybeBase64] = value.split(',');
-  const raw = maybeBase64 ?? value;
-
-  const buffer = Buffer.from(raw, 'base64');
-  const bytes = new Uint8Array(
-    buffer.buffer,
-    buffer.byteOffset,
-    buffer.byteLength,
-  );
-
-  return new File([bytes], filename, { type: mimetype });
-}
-
 export abstract class SpeedSortingService {
   private static speedSortingSlug = 'speed-sorting';
 
@@ -70,7 +40,7 @@ export abstract class SpeedSortingService {
 
       let textForJson = item.type === 'text' ? item.value : '';
 
-      if (item.type === 'file') {
+      if (item.type === 'image') {
         if (!item.file) {
           throw new ErrorResponse(
             StatusCodes.BAD_REQUEST,
@@ -94,7 +64,8 @@ export abstract class SpeedSortingService {
 
       items.push({
         id: `item-${index}`,
-        text: textForJson,
+        value: textForJson,
+        type: item.type,
         category_id: cat.id,
       });
     }
@@ -112,7 +83,7 @@ export abstract class SpeedSortingService {
         name: data.name,
         description: data.description,
         thumbnail_image: thumbnailImagePath,
-        is_published: data.is_publish_immediately,
+        is_published: data.is_published,
         game_json: json as unknown as Prisma.InputJsonValue,
       },
       select: {
@@ -203,8 +174,19 @@ export abstract class SpeedSortingService {
 
         let textForJson = item.value;
 
-        if (isBase64Like(item.value) && item.type === 'file') {
-          const bunFile = fileFromBase64(item.value, `item-${index}.bin`);
+        if (item.type === 'image' && item.valid_file) {
+          if (!item.file) {
+            throw new ErrorResponse(
+              StatusCodes.BAD_REQUEST,
+              `Item no. ${index + 1} marked as file but no file data provided`,
+            );
+          }
+
+          const bytes = new Uint8Array(item.file.buffer);
+
+          const bunFile = new File([bytes], item.file.filename, {
+            type: item.file.mimetype,
+          });
 
           const itemFilePath = await FileManager.upload(
             `game/speed-sorting/${game_id}/items`,
@@ -216,15 +198,13 @@ export abstract class SpeedSortingService {
 
         items.push({
           id: `item-${index}`,
-          text: textForJson,
+          value: textForJson,
+          type: item.type,
           category_id: cat.id,
         });
       }
 
-      json = {
-        categories,
-        items,
-      };
+      json = { categories, items };
     }
 
     const updated = await prisma.games.update({
@@ -234,13 +214,57 @@ export abstract class SpeedSortingService {
         description: data.description ?? existing.description,
         thumbnail_image: thumbnailImagePath,
         is_published:
-          data.is_publish == null ? existing.is_published : data.is_publish,
+          data.is_published == null ? existing.is_published : data.is_published,
         game_json: json as unknown as Prisma.InputJsonValue,
       },
       select: { id: true, game_json: true },
     });
 
     return updated;
+  }
+
+  static async getSpeedSortingGameDetail(
+    game_id: string,
+    user_id: string,
+    user_role: ROLE,
+  ) {
+    const game = await prisma.games.findUnique({
+      where: { id: game_id },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        thumbnail_image: true,
+        is_published: true,
+        created_at: true,
+        game_json: true,
+        creator_id: true,
+        total_played: true,
+        game_template: {
+          select: { slug: true },
+        },
+      },
+    });
+
+    if (!game || game.game_template.slug !== this.speedSortingSlug)
+      throw new ErrorResponse(StatusCodes.NOT_FOUND, 'Game not found');
+
+    if (user_role !== 'SUPER_ADMIN' && game.creator_id !== user_id)
+      throw new ErrorResponse(
+        StatusCodes.FORBIDDEN,
+        'User cannot access this game',
+      );
+
+    const json = game.game_json as unknown as ISpeedSortingJson;
+
+    return {
+      ...game,
+      categories: json.categories,
+      items: json.items,
+      game_json: undefined,
+      creator_id: undefined,
+      game_template: undefined,
+    };
   }
 
   static async getSpeedSortingForPlay(game_id: string) {

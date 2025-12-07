@@ -7,8 +7,9 @@ export interface ISpeedSortingCategory {
 
 export interface ISpeedSortingItem {
   id: string;
-  text: string;
+  value: string;
   category_id: string;
+  type: 'text' | 'image';
 }
 
 export interface ISpeedSortingJson {

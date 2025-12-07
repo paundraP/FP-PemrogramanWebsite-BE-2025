@@ -7,25 +7,71 @@ import {
 } from '@/common';
 
 import {
+  base64ToBuffer,
+  getExtensionFromMime,
+  isBase64,
+  parseDataUrl,
   SpeedSortingCategoryInputSchema,
   SpeedSortingItemInputSchema,
 } from './create-speed-sorting.schema';
 
-export const UpdateSpeedSortingSchema = z.object({
-  name: z.string().max(128).trim().optional(),
-  description: z.string().max(256).trim().optional(),
-  thumbnail_image: fileSchema({}).optional(),
+export const UpdateSpeedSortingSchema = z
+  .object({
+    name: z.string().max(128).trim().optional(),
+    description: z.string().max(256).trim().optional(),
+    thumbnail_image: fileSchema({}).optional(),
+    is_published: StringToBooleanSchema.optional(),
+    categories: StringToObjectSchema(
+      z.array(SpeedSortingCategoryInputSchema).min(2).max(20),
+    ),
+    items: StringToObjectSchema(
+      z.array(SpeedSortingItemInputSchema).min(1).max(1000),
+    ),
+  })
+  .superRefine((data, context) => {
+    const maxIndex = data.categories.length - 1;
 
-  is_publish: StringToBooleanSchema.optional(),
+    for (const [index, item] of data.items.entries()) {
+      if (item.category_index > maxIndex) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['items', index, 'category_index'],
+          message: 'category_index out of range',
+        });
+      }
+    }
+  })
+  .transform(data => ({
+    ...data,
+    items: data.items.map((item, index) => {
+      if (isBase64(item.value) && item.type === 'image') {
+        const { mime, base64 } = parseDataUrl(item.value);
 
-  show_score_at_end: StringToBooleanSchema.optional(),
+        const buffer = base64ToBuffer(base64);
+        const extension = getExtensionFromMime(mime);
 
-  categories: StringToObjectSchema(
-    z.array(SpeedSortingCategoryInputSchema).min(2).max(20),
-  ).optional(),
-  items: StringToObjectSchema(
-    z.array(SpeedSortingItemInputSchema).min(1).max(1000),
-  ).optional(),
-});
+        const filename = `item-${index}.${extension}`;
 
+        return {
+          ...item,
+          type: 'image' as const,
+          raw_value: item.value,
+          valid_file: true,
+          file: {
+            filename,
+            mimetype: mime ?? 'application/octet-stream',
+            buffer,
+          },
+        };
+      }
+
+      return {
+        ...item,
+        type: item.type,
+        raw_value: null,
+        file: null,
+        valid_file: false,
+      };
+    }),
+  }));
 export type IUpdateSpeedSorting = z.infer<typeof UpdateSpeedSortingSchema>;
