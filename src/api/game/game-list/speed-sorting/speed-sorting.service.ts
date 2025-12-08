@@ -204,7 +204,10 @@ export abstract class SpeedSortingService {
         });
       }
 
-      json = { categories, items };
+      json = {
+        categories: categories.length > 0 ? categories : json.categories,
+        items: items.length > 0 ? items : json.items,
+      };
     }
 
     const updated = await prisma.games.update({
@@ -214,7 +217,7 @@ export abstract class SpeedSortingService {
         description: data.description ?? existing.description,
         thumbnail_image: thumbnailImagePath,
         is_published:
-          data.is_published == null ? existing.is_published : data.is_published,
+          data.is_publish == null ? existing.is_published : data.is_publish,
         game_json: json as unknown as Prisma.InputJsonValue,
       },
       select: { id: true, game_json: true },
@@ -311,6 +314,52 @@ export abstract class SpeedSortingService {
       categories: json.categories,
       items: json.items,
     };
+  }
+
+  static async deleteSpeedSorting(
+    game_id: string,
+    user_id: string,
+    user_role: ROLE,
+  ) {
+    const existing = await prisma.games.findUnique({
+      where: { id: game_id },
+      select: {
+        id: true,
+        creator_id: true,
+        game_template: {
+          select: { slug: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new ErrorResponse(
+        StatusCodes.NOT_FOUND,
+        'Speed Sorting game not found',
+      );
+    }
+
+    if (existing.game_template.slug !== this.speedSortingSlug) {
+      throw new ErrorResponse(
+        StatusCodes.BAD_REQUEST,
+        'Game is not a Speed Sorting template',
+      );
+    }
+
+    if (existing.creator_id !== user_id && user_role !== 'SUPER_ADMIN') {
+      throw new ErrorResponse(
+        StatusCodes.FORBIDDEN,
+        'You are not allowed to delete this game',
+      );
+    }
+
+    await prisma.games.delete({
+      where: { id: game_id },
+    });
+
+    await FileManager.removeFolder(`uploads/game/speed-sorting/${game_id}`);
+
+    return { id: game_id };
   }
 
   private static async ensureNameNotDuplicate(name: string) {

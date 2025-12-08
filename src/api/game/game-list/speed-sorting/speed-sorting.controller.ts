@@ -108,7 +108,6 @@ export const SpeedSortingController = Router()
       }
     },
   )
-
   .get(
     '/:game_id/play',
     async (
@@ -125,6 +124,33 @@ export const SpeedSortingController = Router()
           StatusCodes.OK,
           'Speed Sorting config and dataset for play',
           data,
+        );
+
+        return response.status(result.statusCode).json(result.json());
+      } catch (error) {
+        return next(error);
+      }
+    },
+  )
+  .delete(
+    '/:game_id',
+    validateAuth({}),
+    async (
+      request: AuthedRequest<{ game_id: string }, {}>,
+      response: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        await SpeedSortingService.deleteSpeedSorting(
+          request.params.game_id,
+          request.user!.user_id,
+          request.user!.role,
+        );
+
+        const result = new SuccessResponse(
+          StatusCodes.OK,
+          'Speed Sorting game deleted',
+          null,
         );
 
         return response.status(result.statusCode).json(result.json());

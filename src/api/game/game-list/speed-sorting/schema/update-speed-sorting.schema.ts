@@ -20,15 +20,17 @@ export const UpdateSpeedSortingSchema = z
     name: z.string().max(128).trim().optional(),
     description: z.string().max(256).trim().optional(),
     thumbnail_image: fileSchema({}).optional(),
-    is_published: StringToBooleanSchema.optional(),
+    is_publish: StringToBooleanSchema.optional(),
     categories: StringToObjectSchema(
       z.array(SpeedSortingCategoryInputSchema).min(2).max(20),
-    ),
+    ).optional(),
     items: StringToObjectSchema(
       z.array(SpeedSortingItemInputSchema).min(1).max(1000),
-    ),
+    ).optional(),
   })
   .superRefine((data, context) => {
+    if (!data.categories || !data.items) return;
+
     const maxIndex = data.categories.length - 1;
 
     for (const [index, item] of data.items.entries()) {
@@ -43,7 +45,7 @@ export const UpdateSpeedSortingSchema = z
   })
   .transform(data => ({
     ...data,
-    items: data.items.map((item, index) => {
+    items: data.items?.map((item, index) => {
       if (isBase64(item.value) && item.type === 'image') {
         const { mime, base64 } = parseDataUrl(item.value);
 
