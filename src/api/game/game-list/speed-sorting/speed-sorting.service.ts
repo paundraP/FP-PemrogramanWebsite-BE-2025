@@ -136,7 +136,14 @@ export abstract class SpeedSortingService {
       );
     }
 
-    let json = existing.game_json as unknown as ISpeedSortingJson;
+    const oldJson = existing.game_json as unknown as ISpeedSortingJson;
+    const oldItemImagePaths =
+      oldJson.items
+        ?.filter(item => item.type === 'image' && !!item.value)
+        .map(item => item.value) ?? [];
+
+    let json = oldJson;
+    let newItemImagePaths: string[] | null = null;
 
     let thumbnailImagePath = existing.thumbnail_image;
 
@@ -145,6 +152,7 @@ export abstract class SpeedSortingService {
         `game/speed-sorting/${game_id}`,
         data.thumbnail_image,
       );
+      await FileManager.remove(existing.thumbnail_image);
     }
 
     if (data.categories || data.items) {
@@ -161,9 +169,11 @@ export abstract class SpeedSortingService {
       }));
 
       const items: ISpeedSortingJson['items'] = [];
+      const newImages: string[] = [];
 
       for (const [index, item] of data.items.entries()) {
         const cat = categories[item.category_index];
+        const oldItem = oldJson.items?.[index];
 
         if (!cat) {
           throw new ErrorResponse(
@@ -174,26 +184,42 @@ export abstract class SpeedSortingService {
 
         let textForJson = item.value;
 
-        if (item.type === 'image' && item.valid_file) {
-          if (!item.file) {
+        if (item.type === 'image') {
+          if (item.valid_file) {
+            if (!item.file) {
+              throw new ErrorResponse(
+                StatusCodes.BAD_REQUEST,
+                `Item no. ${index + 1} marked as file but no file data provided`,
+              );
+            }
+
+            const bytes = new Uint8Array(item.file.buffer);
+
+            const bunFile = new File([bytes], item.file.filename, {
+              type: item.file.mimetype,
+            });
+
+            const itemFilePath = await FileManager.upload(
+              `game/speed-sorting/${game_id}/items`,
+              bunFile,
+            );
+
+            textForJson = itemFilePath;
+          } else if (!item.value) {
             throw new ErrorResponse(
               StatusCodes.BAD_REQUEST,
-              `Item no. ${index + 1} marked as file but no file data provided`,
+              `Item no. ${index + 1} is missing its value`,
             );
           }
 
-          const bytes = new Uint8Array(item.file.buffer);
-
-          const bunFile = new File([bytes], item.file.filename, {
-            type: item.file.mimetype,
-          });
-
-          const itemFilePath = await FileManager.upload(
-            `game/speed-sorting/${game_id}/items`,
-            bunFile,
-          );
-
-          textForJson = itemFilePath;
+          if (textForJson) newImages.push(textForJson);
+        } else if (
+          oldItem?.type === 'image' &&
+          oldItem.value &&
+          oldItem.value.startsWith('uploads/game/speed-sorting/')
+        ) {
+          // Item changed from image to text; old file is now unused
+          // Removal happens after saving to avoid deleting while update fails
         }
 
         items.push({
@@ -208,6 +234,8 @@ export abstract class SpeedSortingService {
         categories: categories.length > 0 ? categories : json.categories,
         items: items.length > 0 ? items : json.items,
       };
+
+      newItemImagePaths = items.length > 0 ? newImages : null;
     }
 
     const updated = await prisma.games.update({
@@ -222,6 +250,14 @@ export abstract class SpeedSortingService {
       },
       select: { id: true, game_json: true },
     });
+
+    if (newItemImagePaths) {
+      for (const oldPath of oldItemImagePaths) {
+        if (!newItemImagePaths.includes(oldPath)) {
+          await FileManager.remove(oldPath);
+        }
+      }
+    }
 
     return updated;
   }
