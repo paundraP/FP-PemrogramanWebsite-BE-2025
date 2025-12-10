@@ -51,7 +51,7 @@ export abstract class SpeedSortingService {
         const bytes = new Uint8Array(item.file.buffer);
 
         const bunFile = new File([bytes], item.file.filename, {
-          type: item.file.mimetype,
+          type: item.file.mimetype ?? 'application/octet-stream',
         });
 
         const itemFilePath = await FileManager.upload(
@@ -173,7 +173,6 @@ export abstract class SpeedSortingService {
 
       for (const [index, item] of data.items.entries()) {
         const cat = categories[item.category_index];
-        const oldItem = oldJson.items?.[index];
 
         if (!cat) {
           throw new ErrorResponse(
@@ -195,9 +194,7 @@ export abstract class SpeedSortingService {
 
             const bytes = new Uint8Array(item.file.buffer);
 
-            const bunFile = new File([bytes], item.file.filename, {
-              type: item.file.mimetype,
-            });
+            const bunFile = new File([bytes], item.file.filename);
 
             const itemFilePath = await FileManager.upload(
               `game/speed-sorting/${game_id}/items`,
@@ -213,13 +210,6 @@ export abstract class SpeedSortingService {
           }
 
           if (textForJson) newImages.push(textForJson);
-        } else if (
-          oldItem?.type === 'image' &&
-          oldItem.value &&
-          oldItem.value.startsWith('uploads/game/speed-sorting/')
-        ) {
-          // Item changed from image to text; old file is now unused
-          // Removal happens after saving to avoid deleting while update fails
         }
 
         items.push({

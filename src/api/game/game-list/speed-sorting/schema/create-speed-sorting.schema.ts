@@ -5,64 +5,12 @@ import {
   StringToBooleanSchema,
   StringToObjectSchema,
 } from '@/common';
-
-const BASE64_REGEX =
-  /^(?:[\d+/A-Za-z]{4})*(?:[\d+/A-Za-z]{2}==|[\d+/A-Za-z]{3}=)?$/;
-
-export function isBase64(string_: string): boolean {
-  if (!string_ || typeof string_ !== 'string') return false;
-
-  const [, maybeBase64] = string_.split(',');
-  const raw = maybeBase64 ?? string_;
-
-  if (raw.length % 4 !== 0) return false;
-
-  return BASE64_REGEX.test(raw);
-}
-
-export function base64ToBuffer(string_: string): Buffer {
-  const [, maybeBase64] = string_.split(',');
-  const raw = maybeBase64 ?? string_;
-
-  return Buffer.from(raw, 'base64');
-}
-
-const MIME_TO_EXT: Record<string, string> = {
-  ['image/png']: 'png',
-  ['image/jpeg']: 'jpg',
-  ['image/jpg']: 'jpg',
-  ['image/webp']: 'webp',
-  ['image/gif']: 'gif',
-  ['application/pdf']: 'pdf',
-};
-
-export function getExtensionFromMime(mime?: string | null): string {
-  if (!mime) return 'bin';
-
-  return MIME_TO_EXT[mime] ?? 'bin';
-}
-
-export function parseDataUrl(value: string): { mime?: string; base64: string } {
-  const match = value.match(/^data:([^;]+);base64,(.*)$/);
-
-  if (match) {
-    return {
-      mime: match[1],
-      base64: match[2],
-    };
-  }
-
-  return {
-    mime: undefined,
-    base64: value,
-  };
-}
-
-export const SpeedSortingTimerModeEnum = z.enum([
-  'NONE',
-  'COUNT_UP',
-  'COUNT_DOWN',
-]);
+import {
+  base64ToBuffer,
+  getExtensionFromMime,
+  isBase64,
+  parseDataUrl,
+} from '@/utils/buffer.util';
 
 export const SpeedSortingCategoryInputSchema = z.object({
   name: z.string().max(128).trim(),
